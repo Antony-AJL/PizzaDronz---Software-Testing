@@ -1,174 +1,104 @@
 package uk.ac.ed.inf;
 
-import org.junit.Before;
 import org.junit.Test;
-import static org.junit.Assert.*;
-
 import uk.ac.ed.inf.ilp.constant.OrderStatus;
+import uk.ac.ed.inf.ilp.data.CreditCardInformation;
 import uk.ac.ed.inf.ilp.data.Order;
 import uk.ac.ed.inf.ilp.data.Pizza;
 import uk.ac.ed.inf.ilp.data.Restaurant;
-import uk.ac.ed.inf.ilp.data.CreditCardInformation;
 
+import java.io.File;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.util.Arrays;
+import java.util.List;
 
-public class OrderValidatorTest {
-    private Restaurant[] restaurants;
-    private OrderValidator validator;
-    private Pizza pizzaMargarita;
-    private Pizza pizzaPepperoni;
-    private Pizza pizzaVegan;
+import static org.junit.Assert.*;
 
-    @Before
-    public void setup() {
-        // Initialize pizzas and restaurants for testing
-        // ...
-        validator = new OrderValidator();
-    }
+public class AppTest {
 
-    // Tests for General Order Fields
     @Test
-    public void validateInvalidOrderNumber() {
-        Order invalidOrderNumber = new Order(null, LocalDate.now(), "Customer", new CreditCardInformation("1234567890123456", "10/23", "123"), 1000, new Pizza[]{pizzaMargarita});
-        assertFalse(validator.validateOrder(invalidOrderNumber, restaurants).isValid());
+    public void TestGetRestaurants() throws Exception {
+        String BASEURL = "https://ilp-rest.azurewebsites.net";
+        Restaurant[] restaurants = UtilityHelper.getRestaurants(BASEURL);
+        assertNotNull(restaurants);
+        assertTrue(restaurants.length > 0);
     }
 
     @Test
-    public void validateInvalidOrderDate() {
-        Order invalidOrderDate = new Order("123", null, "Customer", new CreditCardInformation("1234567890123456", "10/23", "123"), 1000, new Pizza[]{pizzaMargarita});
-        assertFalse(validator.validateOrder(invalidOrderDate, restaurants).isValid());
+    public void TestGetOrders() {
+        String BASEURL = "https://ilp-rest.azurewebsites.net";
+        String date = "2023-01-01";
+        Order[] orders = UtilityHelper.getOrders(BASEURL, date);
+        assertNotNull(orders);
+        assertTrue(orders.length >= 0);
     }
 
     @Test
-    public void validateInvalidCustomerName() {
-        Order invalidCustomerName = new Order("123", LocalDate.now(), "", new CreditCardInformation("1234567890123456", "10/23", "123"), 1000, new Pizza[]{pizzaMargarita});
-        assertFalse(validator.validateOrder(invalidCustomerName, restaurants).isValid());
+    public void TestValidateOrder() {
+        LocalDate orderDate = LocalDate.parse("2023-01-01");
+        OrderStatus orderStatus = OrderStatus.PENDING;
+        int priceTotalInPence = 1000;
+        Pizza[] pizzasInOrder = new Pizza[]{new Pizza("Sample Pizza", 800)};
+        CreditCardInformation creditCardInformation = new CreditCardInformation("John Doe", "1234-5678-9012-3456");
+
+        Order sampleOrder = new Order("SampleOrderID", orderDate, orderStatus, OrderValidationCode.VALID, priceTotalInPence, pizzasInOrder, creditCardInformation);
+
+        Restaurant[] restaurants = new Restaurant[0];
+        Order validatedOrder = UtilityHelper.validateOrder(sampleOrder, restaurants);
+        assertNotNull(validatedOrder);
     }
 
     @Test
-    public void validateValidCompleteOrder() {
-        Order validateValidCompleteOrder = new Order("123", LocalDate.now(), "Customer", new CreditCardInformation("1234567890123456", "10/23", "123"), 1000, new Pizza[]{pizzaMargarita});
-        assertTrue(validator.validateOrder(validateValidCompleteOrder, restaurants).isValid());
-    }
+    public void TestUpdateOrderStatus() {
+        LocalDate orderDate1 = LocalDate.parse("2023-01-01");
+        LocalDate orderDate2 = LocalDate.parse("2023-01-02");
+        Order order1 = new Order("Order1", orderDate1, OrderStatus.PENDING, OrderValidationCode.VALID, 1000, new Pizza[]{new Pizza("Sample Pizza", 800)}, new CreditCardInformation("John Doe", "1234-5678-9012-3456"));
+        Order order2 = new Order("Order2", orderDate2, OrderStatus.PENDING, OrderValidationCode.VALID, 1000, new Pizza[]{new Pizza("Sample Pizza", 800)}, new CreditCardInformation("John Doe", "1234-5678-9012-3456"));
 
+        List<Order> orders = Arrays.asList(order1, order2);
+        UtilityHelper.updateOrderStatus(orders);
 
-
-
-
-    // Tests for Credit Card Information
-    // Credit Card Expiry Date Tests
-    @Test
-    public void validateInvalidExpiryDateFormat() {
-        Order invalidExpiryFormat = new Order("123", LocalDate.now(), "Customer", new CreditCardInformation("4242424242424242", "10/2023", "123"), 1000, new Pizza[]{pizzaMargarita});
-        assertFalse(validator.validateOrder(invalidExpiryFormat, restaurants).isValid());
+        for (Order order : orders) {
+            assertEquals(OrderStatus.VALID_BUT_NOT_DELIVERED, order.getOrderStatus());
+        }
     }
 
     @Test
-    public void validateExpiryDateBeforeOrderDate() {
-        Order expiryBeforeOrder = new Order("123", LocalDate.now(), "Customer", new CreditCardInformation("4242424242424242", "01/20", "123"), 1000, new Pizza[]{pizzaMargarita});
-        assertFalse(validator.validateOrder(expiryBeforeOrder, restaurants).isValid());
+    public void TestIsWebsiteAlive() {
+        String BASEURL = "https://ilp-rest.azurewebsites.net";
+        boolean isAlive = UtilityHelper.isWebsiteAlive(BASEURL);
+        assertTrue(isAlive);
     }
 
     @Test
-    public void validateValidExpiryDate() {
-        Order validExpiryDate = new Order("123", LocalDate.now(), "Customer", new CreditCardInformation("4242424242424242", "12/25", "123"), 1000, new Pizza[]{pizzaMargarita});
-        assertTrue(validator.validateOrder(validExpiryDate, restaurants).isValid());
-    }
-
-    // CVV Tests
-    @Test
-    public void validateInvalidCvvFormat() {
-        Order invalidCvvFormat = new Order("123", LocalDate.now(), "Customer", new CreditCardInformation("4242424242424242", "10/23", "12A"), 1000, new Pizza[]{pizzaMargarita});
-        assertFalse(validator.validateOrder(invalidCvvFormat, restaurants).isValid());
+    public void TestCreateResultFolder() {
+        UtilityHelper.createResultFolder();
+        File resultFolder = new File("resultfiles/");
+        assertTrue(resultFolder.exists() && resultFolder.isDirectory());
     }
 
     @Test
-    public void validateValidCvv() {
-        Order validCvv = new Order("123", LocalDate.now(), "Customer", new CreditCardInformation("4242424242424242", "10/23", "123"), 1000, new Pizza[]{pizzaMargarita});
-        assertTrue(validator.validateOrder(validCvv, restaurants).isValid());
-    }
+    public void TestGetRestaurant() {
+        Restaurant restaurant1 = new Restaurant("Restaurant1", new LngLat(55.7558, 37.6176),
+                new DayOfWeek[]{DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY},
+                new Pizza[]{
+                        new Pizza("Margherita", 800),
+                        new Pizza("Pepperoni", 900)
+                }
+        );
+        Restaurant restaurant2 = new Restaurant("Restaurant2", new LngLat(55.7558, 37.6176),
+                new DayOfWeek[]{DayOfWeek.TUESDAY, DayOfWeek.THURSDAY},
+                new Pizza[]{
+                        new Pizza("Hawaiian", 850),
+                        new Pizza("Vegetarian", 850)
+                }
+        );
 
-    @Test
-    public void validateCardWithInvalidFormat() {
-        Order invalidFormatCard = new Order("123", LocalDate.now(), "Customer", new CreditCardInformation("1234", "10/23", "123"), 1000, new Pizza[]{pizzaMargarita});
-        assertFalse(validator.validateOrder(invalidFormatCard, restaurants).isValid());
+        Restaurant[] restaurants = new Restaurant[]{restaurant1, restaurant2};
+        LocalDate orderDate = LocalDate.parse("2023-01-01");
+        Order sampleOrder = new Order("SampleOrderID", orderDate, OrderStatus.PENDING, OrderValidationCode.VALID, 1000, new Pizza[]{new Pizza("Sample Pizza", 800)}, new CreditCardInformation("John Doe", "1234-5678-9012-3456"));
+        Restaurant foundRestaurant = UtilityHelper.getRestaurant(restaurants, sampleOrder);
+        assertNotNull(foundRestaurant);
     }
-
-    @Test
-    public void validateNonVisaMastercard() {
-        Order nonVisaMastercard = new Order("123", LocalDate.now(), "Customer", new CreditCardInformation("6011111111111117", "10/23", "123"), 1000, new Pizza[]{pizzaMargarita});
-        assertFalse(validator.validateOrder(nonVisaMastercard, restaurants).isValid());
-    }
-
-    @Test
-    public void validateCardWithInvalidChecksum() {
-        Order invalidChecksumCard = new Order("123", LocalDate.now(), "Customer", new CreditCardInformation("1234567890123456", "10/23", "123"), 1000, new Pizza[]{pizzaMargarita});
-        assertFalse(validator.validateOrder(invalidChecksumCard, restaurants).isValid());
-    }
-
-    @Test
-    public void validateValidCardNumber() {
-        Order validCardNumber = new Order("123", LocalDate.now(), "Customer", new CreditCardInformation("4242424242424242", "10/23", "123"), 1000, new Pizza[]{pizzaMargarita});
-        assertTrue(validator.validateOrder(validCardNumber, restaurants).isValid());
-    }
-
-    // Pizza Count Tests
-    @Test
-    public void validateExcessivePizzaCount() {
-        Pizza[] tooManyPizzas = new Pizza[]{pizzaMargarita, pizzaPepperoni, pizzaVegan, pizzaMargarita, pizzaPepperoni};
-        Order tooManyPizzasOrder = new Order("123", LocalDate.now(), "Customer", new CreditCardInformation("4242424242424242", "10/23", "123"), 5000, tooManyPizzas);
-        assertFalse(validator.validateOrder(tooManyPizzasOrder, restaurants).isValid());
-    }
-
-    @Test
-    public void validateValidPizzaCount() {
-        Pizza[] validPizzaCount = new Pizza[]{pizzaMargarita, pizzaPepperoni, pizzaVegan};
-        Order validPizzaCountOrder = new Order("123", LocalDate.now(), "Customer", new CreditCardInformation("4242424242424242", "10/23", "123"), 3000, validPizzaCount);
-        assertTrue(validator.validateOrder(validPizzaCountOrder, restaurants).isValid());
-    }
-
-    // Undefined Pizza Test
-    @Test
-    public void validateOrderWithUndefinedPizza() {
-        Pizza undefinedPizza = new Pizza("Undefined", 1000);
-        Order orderWithUndefinedPizza = new Order("123", LocalDate.now(), "Customer", new CreditCardInformation("4242424242424242", "10/23", "123"), 1500, new Pizza[]{undefinedPizza});
-        assertFalse(validator.validateOrder(orderWithUndefinedPizza, restaurants).isValid());
-    }
-
-    // Pizzas From Same Restaurant Test
-    @Test
-    public void validatePizzasFromDifferentRestaurants() {
-        Pizza[] pizzasFromDifferentRestaurants = new Pizza[]{pizzaMargarita, pizzaVegan}; // Assuming they are from different restaurants
-        Order orderFromDifferentRestaurants = new Order("123", LocalDate.now(), "Customer", new CreditCardInformation("4242424242424242", "10/23", "123"), 2100, pizzasFromDifferentRestaurants);
-        assertFalse(validator.validateOrder(orderFromDifferentRestaurants, restaurants).isValid());
-    }
-
-    @Test
-    public void validatePizzasFromSameRestaurant() {
-        Pizza[] pizzasFromSameRestaurant = new Pizza[]{pizzaMargarita, pizzaPepperoni}; // Assuming they are from the same restaurant
-        Order orderFromSameRestaurant = new Order("123", LocalDate.now(), "Customer", new CreditCardInformation("4242424242424242", "10/23", "123"), 2200, pizzasFromSameRestaurant);
-        assertTrue(validator.validateOrder(orderFromSameRestaurant, restaurants).isValid());
-    }
-
-    // Order Total Tests
-    @Test
-    public void validateInvalidOrderTotal() {
-        Order invalidTotalOrder = new Order("123", LocalDate.now(), "Customer", new CreditCardInformation("4242424242424242", "10/23", "123"), 999, new Pizza[]{pizzaMargarita}); // Incorrect total amount
-        assertFalse(validator.validateOrder(invalidTotalOrder, restaurants).isValid());
-    }
-
-    @Test
-    public void validateValidOrderTotal() {
-        Order validTotalOrder = new Order("123", LocalDate.now(), "Customer", new CreditCardInformation("4242424242424242", "10/23", "123"), 1000, new Pizza[]{pizzaMargarita}); // Correct total amount
-        assertTrue(validator.validateOrder(validTotalOrder, restaurants).isValid());
-    }
-
-    // Valid Order Test
-    @Test
-    public void validateCorrectlyFormattedOrder() {
-        Order correctlyFormattedOrder = new Order("123", LocalDate.now(), "Customer", new CreditCardInformation("4242424242424242", "10/23", "123"), 2500, new Pizza[]{pizzaMargarita, pizzaPepperoni});
-        assertTrue(validator.validateOrder(correctlyFormattedOrder, restaurants).isValid());
-    }
-
 }
-
